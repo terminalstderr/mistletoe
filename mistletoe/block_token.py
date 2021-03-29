@@ -292,14 +292,20 @@ class Paragraph(BlockToken):
     setext_pattern = re.compile(r' {0,3}(=|-)+ *$')
     parse_setext = True  # can be disabled by Quote
 
-    def __new__(cls, lines):
+    def __new__(cls, lines, **kwargs):
+        if 'parent' in kwargs:
+            return super().__new__(cls)
         if not isinstance(lines, list):
             # setext heading token, return directly
             return lines
         return super().__new__(cls)
 
-    def __init__(self, lines):
-        content = ''.join([line.lstrip() for line in lines]).strip()
+    def __init__(self, lines, **kwargs):
+        if 'parent' in kwargs:
+            # When called with 'parent' argument implies we are doing a 'split'
+            content = lines
+        else:
+            content = ''.join([line.lstrip() for line in lines]).strip()
         super().__init__(content, span_token.tokenize_inner)
 
     @staticmethod
@@ -406,10 +412,15 @@ class CodeFence(BlockToken):
     """
     pattern = re.compile(r'( {0,3})((?:`|~){3,}) *(\S*)')
     _open_info = None
-    def __init__(self, match):
-        lines, open_info = match
-        self.language = span_token.EscapeSequence.strip(open_info[2])
-        self.children = (span_token.RawText(''.join(lines)),)
+
+    def __init__(self, match, **kwargs):
+        if 'parent' in kwargs:
+            self.language = kwargs['parent'].language
+            self.children = (span_token.RawText(match,),)
+        else:
+            lines, open_info = match
+            self.language = span_token.EscapeSequence.strip(open_info[2])
+            self.children = (span_token.RawText(''.join(lines)),)
 
     @classmethod
     def start(cls, line):
