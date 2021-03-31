@@ -11,7 +11,7 @@ class TestGithubWiki(TestCase):
         self.renderer.__enter__()
         self.addCleanup(self.renderer.__exit__, None, None, None)
 
-    def test_parse(self):
+    def __test_parse(self):
         MockRawText = mock.Mock(autospec='mistletoe.span_token.RawText')
         RawText = _token_types.pop()
         _token_types.append(MockRawText)

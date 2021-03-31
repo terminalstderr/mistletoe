@@ -68,9 +68,15 @@ class SpanToken:
     parse_group = 1
     precedence = 5
 
-    def __init__(self, match):
-        if not self.parse_inner:
-            self.content = match.group(self.parse_group)
+    def __init__(self, match, **kwargs):
+        if 'copy_of' in kwargs:
+            self.children = kwargs['copy_of'].children
+        else:
+            if not self.parse_inner:
+                self.content = match.group(self.parse_group)
+
+    def copy(self):
+        return type(self)(None, copy_of=self)
 
     def __contains__(self, text):
         if hasattr(self, 'children'):
@@ -84,6 +90,7 @@ class SpanToken:
 
 class CoreTokens(SpanToken):
     precedence = 3
+
     def __new__(self, match):
         return globals()[match.type](match)
 
@@ -112,9 +119,12 @@ class InlineCode(SpanToken):
     parse_inner = False
     parse_group = 2
 
-    def __init__(self, match):
-        content = match.group(self.parse_group)
-        self.children = (RawText(' '.join(re.split('[ \n]+', content.strip()))),)
+    def __init__(self, match, **kwargs):
+        if 'copy_of' in kwargs:
+            self.children = kwargs['copy_of'].children
+        else:
+            content = match.group(self.parse_group)
+            self.children = (RawText(' '.join(re.split('[ \n]+', content.strip()))),)
 
     @classmethod
     def find(cls, string):
@@ -138,9 +148,15 @@ class Image(SpanToken):
         src (str): image source.
         title (str): image title (default to empty).
     """
-    def __init__(self, match):
-        self.src = match.group(2).strip()
-        self.title = match.group(3)
+    def __init__(self, match, **kwargs):
+        if 'copy_of' in kwargs:
+            original = kwargs['copy_of']
+            self.src = original.src
+            self.title = original.title
+            self.children = original.children
+        else:
+            self.src = match.group(2).strip()
+            self.title = match.group(3)
 
 
 class Link(SpanToken):
@@ -150,9 +166,15 @@ class Link(SpanToken):
     Attributes:
         target (str): link target.
     """
-    def __init__(self, match):
-        self.target = EscapeSequence.strip(match.group(2).strip())
-        self.title = EscapeSequence.strip(match.group(3))
+    def __init__(self, match, **kwargs):
+        if 'copy_of' in kwargs:
+            token = kwargs['copy_of']
+            self.children = token.children
+            self.target = token.target
+            self.title = token.title
+        else:
+            self.target = EscapeSequence.strip(match.group(2).strip())
+            self.title = EscapeSequence.strip(match.group(3))
 
 
 class AutoLink(SpanToken):
@@ -166,11 +188,17 @@ class AutoLink(SpanToken):
     pattern = re.compile(r"(?<!\\)(?:\\\\)*<([A-Za-z][A-Za-z0-9+.-]{1,31}:[^ <>]*?|[A-Za-z0-9.!#$%&'*+/=?^_`{|}~-]+@[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?(?:\.[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?)*)>")
     parse_inner = False
 
-    def __init__(self, match):
-        content = match.group(self.parse_group)
-        self.children = (RawText(content),)
-        self.target = content
-        self.mailto = '@' in self.target and 'mailto' not in self.target.casefold()
+    def __init__(self, match, **kwargs):
+        if 'copy_of' in kwargs:
+            original = kwargs['copy_of']
+            self.children = original.children
+            self.target = original.target
+            self.mailto = original.mailto
+        else:
+            content = match.group(self.parse_group)
+            self.children = (RawText(content),)
+            self.target = content
+            self.mailto = '@' in self.target and 'mailto' not in self.target.casefold()
 
 
 class EscapeSequence(SpanToken):
@@ -184,8 +212,11 @@ class EscapeSequence(SpanToken):
     parse_inner = False
     precedence = 2
 
-    def __init__(self, match):
-        self.children = (RawText(match.group(self.parse_group)),)
+    def __init__(self, match, **kwargs):
+        if 'copy_of' in kwargs:
+            self.children = kwargs['copy_of'].children
+        else:
+            self.children = (RawText(match.group(self.parse_group)),)
 
     @classmethod
     def strip(cls, string):
@@ -200,10 +231,13 @@ class LineBreak(SpanToken):
     parse_inner = False
     parse_group = 0
 
-    def __init__(self, match):
-        content = match.group(1)
-        self.soft = not content.startswith(('  ', '\\'))
+    def __init__(self, match, **kwargs):
         self.content = ''
+        if 'copy_of' in kwargs:
+            self.soft = kwargs['copy_of'].soft
+        else:
+            content = match.group(1)
+            self.soft = not content.startswith(('  ', '\\'))
 
 
 class RawText(SpanToken):
@@ -213,8 +247,11 @@ class RawText(SpanToken):
     RawText is the only token that accepts a string for its constructor,
     instead of a match object. Also, all recursions should bottom out here.
     """
-    def __init__(self, content):
-        self.content = content
+    def __init__(self, content, **kwargs):
+        if 'copy_of' in kwargs:
+            self.content = kwargs['copy_of'].content
+        else:
+            self.content = content
 
 
 _tags = {'address', 'article', 'aside', 'base', 'basefont', 'blockquote',

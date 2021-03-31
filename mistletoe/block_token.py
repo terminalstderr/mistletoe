@@ -3,12 +3,10 @@ Built-in block-level token classes.
 """
 
 import re
-import sys
 from itertools import zip_longest
 import mistletoe.block_tokenizer as tokenizer
 from mistletoe import span_token
 from mistletoe.core_tokens import (
-        is_link_label,
         follows,
         shift_whitespace,
         whitespace,
@@ -119,12 +117,21 @@ class BlockToken(object):
     Attributes:
         children (list): inner tokens.
     """
-    def __init__(self, lines, tokenize_func):
-        self.children = tokenize_func(lines)
+    def __init__(self, lines, tokenize_func, **kwargs):
+        if 'copy_of' in kwargs:
+            self.children = kwargs['copy_of'].children
+        else:
+            self.children = tokenize_func(lines)
 
     def __contains__(self, text):
         return any(text in child for child in self.children)
-    
+
+    def copy(self):
+        # TODO Will this ever execute with cls == BlockToken?
+        if type(self) == BlockToken:
+            return BlockToken(None, None, copy_of=self)
+        return type(self)(None, copy_of=self)
+
     @staticmethod
     def read(lines):
         line_buffer = [next(lines)]
@@ -164,9 +171,13 @@ class Heading(BlockToken):
     pattern = re.compile(r' {0,3}(#{1,6})(?:\n|\s+?(.*?)(?:\n|\s+?#+\s*?$))')
     level = 0
     content = ''
-    def __init__(self, match):
-        self.level, content = match
-        super().__init__(content, span_token.tokenize_inner)
+    def __init__(self, match, **kwargs):
+        if 'copy_of' in kwargs:
+            self.level = kwargs['copy_of'].level
+            self.children = kwargs['copy_of'].children
+        else:
+            self.level, content = match
+            super().__init__(content, span_token.tokenize_inner)
 
     @classmethod
     def start(cls, line):
@@ -208,9 +219,12 @@ class Quote(BlockToken):
     """
     Quote token. (["> # heading\\n", "> paragraph\\n"])
     """
-    def __init__(self, parse_buffer):
-        # span-level tokenizing happens here.
-        self.children = tokenizer.make_tokens(parse_buffer)
+    def __init__(self, parse_buffer, **kwargs):
+        if 'copy_of' in kwargs:
+            self.children = kwargs['copy_of'].children
+        else:
+            # span-level tokenizing happens here.
+            self.children = tokenizer.make_tokens(parse_buffer)
 
     @staticmethod
     def start(line):
@@ -293,7 +307,7 @@ class Paragraph(BlockToken):
     parse_setext = True  # can be disabled by Quote
 
     def __new__(cls, lines, **kwargs):
-        if 'parent' in kwargs:
+        if 'copy_of' in kwargs:
             return super().__new__(cls)
         if not isinstance(lines, list):
             # setext heading token, return directly
@@ -301,12 +315,11 @@ class Paragraph(BlockToken):
         return super().__new__(cls)
 
     def __init__(self, lines, **kwargs):
-        if 'parent' in kwargs:
-            # When called with 'parent' argument implies we are doing a 'split'
-            content = lines
+        if 'copy_of' in kwargs:
+            self.children = kwargs['copy_of'].children
         else:
             content = ''.join([line.lstrip() for line in lines]).strip()
-        super().__init__(content, span_token.tokenize_inner)
+            super().__init__(content, span_token.tokenize_inner)
 
     @staticmethod
     def start(line):
@@ -365,9 +378,14 @@ class BlockCode(BlockToken):
         children (list): contains a single span_token.RawText token.
         language (str): always the empty string.
     """
-    def __init__(self, lines):
-        self.language = ''
-        self.children = (span_token.RawText(''.join(lines).strip('\n')+'\n'),)
+    def __init__(self, lines, **kwargs):
+        if 'copy_of' in kwargs:
+            token = kwargs['copy_of']
+            self.language = token.language
+            self.children = token.children
+        else:
+            self.language = ''
+            self.children = (span_token.RawText(''.join(lines).strip('\n')+'\n'),)
 
     @staticmethod
     def start(line):
@@ -414,9 +432,10 @@ class CodeFence(BlockToken):
     _open_info = None
 
     def __init__(self, match, **kwargs):
-        if 'parent' in kwargs:
-            self.language = kwargs['parent'].language
-            self.children = (span_token.RawText(match,),)
+        if 'copy_of' in kwargs:
+            token = kwargs['copy_of']
+            self.language = token.language
+            self.children = token.children
         else:
             lines, open_info = match
             self.language = span_token.EscapeSequence.strip(open_info[2])
@@ -460,13 +479,19 @@ class List(BlockToken):
         start (NoneType or int): None if unordered, starting number if ordered.
     """
     pattern = re.compile(r' {0,3}(?:\d{0,9}[.)]|[+\-*])(?:[ \t]*$|[ \t]+)')
-    def __init__(self, matches):
-        self.children = [ListItem(*match) for match in matches]
-        self.loose = any(item.loose for item in self.children)
-        leader = self.children[0].leader
-        self.start = None
-        if len(leader) != 1:
-            self.start = int(leader[:-1])
+    def __init__(self, matches, **kwargs):
+        if 'copy_of' in kwargs:
+            token = kwargs['copy_of']
+            self.children = token.children
+            self.loose = token.loose
+            self.start = token.start
+        else:
+            self.children = [ListItem(*match) for match in matches]
+            self.loose = any(item.loose for item in self.children)
+            leader = self.children[0].leader
+            self.start = None
+            if len(leader) != 1:
+                self.start = int(leader[:-1])
 
     @classmethod
     def start(cls, line):
@@ -630,8 +655,15 @@ class Table(BlockToken):
         column_align (list): align options for each column (default to [None]).
         children (list): inner tokens (TableRows).
     """
-    def __init__(self, lines):
-        if '---' in lines[1]:
+    def __init__(self, lines, **kwargs):
+        if 'copy_of' in kwargs:
+            token = kwargs['copy_of']
+            if hasattr(token, 'has_header'):
+                self.has_header = token.has_header
+            self.header = token.header
+            self.column_align = token.column_align
+            self.children = token.children
+        elif '---' in lines[1]:
             self.column_align = [self.parse_align(column)
                     for column in self.split_delimiter(lines[1])]
             self.header = TableRow(lines[0], self.column_align)
@@ -882,7 +914,7 @@ class ThematicBreak(BlockToken):
     Thematic break token (a.k.a. horizontal rule.)
     """
     pattern = re.compile(r' {0,3}(?:([-_*])\s*?)(?:\1\s*?){2,}$')
-    def __init__(self, _):
+    def __init__(self, _, **kwargs):
         pass
 
     @classmethod
@@ -907,8 +939,11 @@ class HTMLBlock(BlockToken):
     custom_tag = re.compile(r'(?:' + '|'.join((span_token._open_tag,
                                 span_token._closing_tag)) + r')\s*$')
 
-    def __init__(self, lines):
-        self.content = ''.join(lines).rstrip('\n')
+    def __init__(self, lines, **kwargs):
+        if 'copy_of' in kwargs:
+            self.content = kwargs['copy_of'].content
+        else:
+            self.content = ''.join(lines).rstrip('\n')
 
     @classmethod
     def start(cls, line):
