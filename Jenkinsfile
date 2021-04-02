@@ -67,9 +67,7 @@ pipeline {
                 }
                 withPythonEnv('python3') {
                     sh 'pip install --upgrade pip'
-                    sh 'pip install -r requirements.txt'
-                    // Install the 'buildtools' pipeline scripts
-                    sh 'pip install --force-reinstall --no-deps --upgrade -e .'
+                    sh '''python3 -m pip install --user --force-reinstall --upgrade 'ntsbuildtools==1.2.6' '''
                 }
             }
         }
