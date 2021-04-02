@@ -1,14 +1,14 @@
-from setuptools import setup
+from setuptools import setup, find_packages
 import mistletoe
 
-setup(name='mistletoe',
+setup(name='mistletoe-tcopy',
+      packages=find_packages(),
       version=mistletoe.__version__,
-      description='A fast, extensible Markdown parser in pure Python.',
-      url='https://github.com/miyuchina/mistletoe',
-      author='Mi Yu',
-      author_email='hello@afteryu.me',
       license='MIT',
-      packages=['mistletoe'],
+      description='A fast, extensible Markdown parser in pure Python. Supports a copy() method on all tokens.',
+      url='https://github.com/terminalstderr/mistletoe',
+      author='Ryan Leonard',
+      author_email='rleonar7@uoregon.edu',
       entry_points={'console_scripts': ['mistletoe = mistletoe.__main__:main']},
       classifiers=[
           'Development Status :: 3 - Alpha',
