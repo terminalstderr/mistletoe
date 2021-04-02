@@ -1,12 +1,11 @@
 <h1>mistletoe<img src='https://cdn.rawgit.com/miyuchina/mistletoe/master/resources/logo.svg' align='right' width='128' height='128'></h1>
 
-[![Build Status][build-badge]][travis]
-[![Coverage Status][cover-badge]][coveralls]
 [![PyPI][pypi-badge]][pypi]
-[![is wheel][wheel-badge]][pypi]
 
 mistletoe is a Markdown parser in pure Python,
 designed to be fast, spec-compliant and fully customizable.
+This is a simple fork of the mistletoe project that enables a 'copy()'
+method on all the various types of tokens in the mistletoe project.
 
 Apart from being the fastest
 CommonMark-compliant Markdown parser implementation in pure Python,
@@ -441,8 +440,7 @@ Copyright & License
 
 [build-badge]: https://img.shields.io/travis/miyuchina/mistletoe.svg?style=flat-square
 [cover-badge]: https://img.shields.io/coveralls/miyuchina/mistletoe.svg?style=flat-square
-[pypi-badge]: https://img.shields.io/pypi/v/mistletoe.svg?style=flat-square
-[wheel-badge]: https://img.shields.io/pypi/wheel/mistletoe.svg?style=flat-square
+[pypi-badge]: https://img.shields.io/pypi/v/mistletoe-tcopy.svg?style=flat-square
 [travis]: https://travis-ci.org/miyuchina/mistletoe
 [coveralls]: https://coveralls.io/github/miyuchina/mistletoe?branch=master
 [pypi]: https://pypi.python.org/pypi/mistletoe
