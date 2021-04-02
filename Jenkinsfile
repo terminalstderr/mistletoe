@@ -67,7 +67,7 @@ pipeline {
                 }
                 withPythonEnv('python3') {
                     sh 'pip install --upgrade pip'
-                    sh '''python3 -m pip install --user --force-reinstall --upgrade 'ntsbuildtools==1.2.6' '''
+                    sh 'pip install "ntsbuildtools==1.2.6"'
                 }
             }
         }
